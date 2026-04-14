@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Criador de Personagem</title>
+
+<style>
+body{
+    margin:0;
+    display:flex;
+    height:100vh;
+    font-family:Arial, sans-serif;
+    overflow:hidden;
+}
+
+/* MENU */
+.sidebar{
+    width:220px;
+    background:#f3f3f3;
+    border-right:2px solid #ddd;
+    padding:10px;
+    box-sizing:border-box;
+    overflow-y:auto;
+}
+
+.sidebar h2{
+    margin-top:0;
+}
+
+.category-btn{
+    width:100%;
+    padding:12px;
+    margin-bottom:10px;
+    border:none;
+    cursor:pointer;
+    background:#fff;
+    border-radius:8px;
+    font-weight:bold;
+}
+
+.parts{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:8px;
+}
+
+.part-btn{
+    width:100%;
+    aspect-ratio:1;
+    border:1px solid #ccc;
+    cursor:pointer;
+    background:#fff;
+}
+
+.part-btn img{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+}
+
+/* PALCO */
+.canvas{
+    flex:1;
+    background:white;
+    position:relative;
+    overflow:hidden;
+}
+
+/* PEÇAS */
+.draggable{
+    position:absolute;
+    width:250px;
+    cursor:grab;
+    user-select:none;
+    transform-origin:center;
+}
+
+/* PAINEL DE COR */
+.color-panel{
+    position:absolute;
+    background:white;
+    border:1px solid #ccc;
+    padding:10px;
+    border-radius:10px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.15);
+    display:none;
+    z-index:9999;
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>Peças</h2>
+
+    <button class="category-btn" onclick="showCategory('body')">Corpo</button>
+    <button class="category-btn" onclick="showCategory('hair')">Cabelo</button>
+    <button class="category-btn" onclick="showCategory('mustache')">Misc</button>
+    <button class="category-btn" onclick="showCategory('clothes')">Roupas</button>
+    <button class="category-btn" onclick="showCategory('extra')">Extras</button>
+    <button class="category-btn" onclick="showLayers()">Camadas</button>
+
+    <div class="parts" id="partsContainer"></div>
+</div>
+
+<div class="canvas" id="canvas"></div>
+
+<div class="color-panel" id="colorPanel">
+    <div>Cor</div>
+    <input type="range" id="hueSlider" min="0" max="360" value="0">
+
+    <div style="margin-top:8px;">Saturação</div>
+    <input type="range" id="satSlider" min="0" max="200" value="100" step="1">
+</div>
+
+<script>
+const partsContainer = document.getElementById("partsContainer");
+const canvas = document.getElementById("canvas");
+const colorPanel = document.getElementById("colorPanel");
+const hueSlider = document.getElementById("hueSlider");
+const satSlider = document.getElementById("satSlider");
+
+let selectedPiece = null;
+let currentZ = 1;
+let justOpenedByHold = false;
+let placedPieces = [];
+
+/* CATEGORIAS */
+const categories = {
+    body: [
+        "img/body01.png",
+        "img/body02.png",
+        "img/body03.png",
+        "img/body04.png",
+        "img/body05.png",
+        "img/body06.png",
+        "img/body07.png",
+        "img/body08.png",
+        "img/body09.png",
+        "img/body10.png",
+        "img/body11.png",
+        "img/body12.png",
+        "img/body13.png"
+    ],
+    hair: [
+        "img/cabelo01.png",
+        "img/cabelo02.png",
+        "img/cabelo03.png",
+        "img/cabelo04.png",
+        "img/cabelo05.png",
+        "img/cabelo06.png",
+        "img/cabelo07.png",
+        "img/cabelo08.png",
+        "img/cabelo09.png",
+        "img/cabelo10.png",
+        "img/cabelo11.png",
+        "img/cabelo12.png",
+        "img/cabelo13.png",
+        "img/cabelo14.png",
+        "img/cabelo15.png",
+        "img/cabelo16.png",
+        "img/cabelo17.png",
+        "img/cabelo18.png",
+        "img/cabelo20.png",
+        "img/cabelo21.png",
+        "img/cabelo22.png",
+        "img/cabelo23.png"
+    ],
+    mustache: [
+        "img/misc01.png",
+        "img/misc02.png",
+        "img/misc03.png",
+        "img/misc04.png",
+        "img/misc05.png",
+        "img/misc06.png",
+        "img/misc07.png",
+        "img/misc08.png",
+        "img/misc09.png",
+        "img/misc10.png",
+        "img/misc11.png",
+        "img/misc12.png",
+        "img/misc13.png"
+    ],
+    clothes: [
+        "img/roupa01.png",
+        "img/roupa02.png",
+        "img/roupa03.png",
+        "img/roupa04.png",
+        "img/roupa05.png",
+        "img/roupa06.png",
+        "img/roupa07.png",
+        "img/roupa08.png",
+        "img/roupa09.png",
+        "img/roupa10.png",
+        "img/roupa11.png",
+        "img/roupa12.png",
+        "img/roupa13.png",
+        "img/roupa14.png",
+        "img/roupa15.png",
+        "img/roupa16.png",
+        "img/roupa17.png",
+        "img/roupa18.png",
+        "img/roupa19.png",
+        "img/roupa20.png",
+        "img/roupa21.png",
+        "img/roupa22.png",
+        "img/roupa23.png",
+        "img/roupa24.png",
+        "img/roupa25.png",
+        "img/roupa26.png",
+        "img/roupa27.png",
+        "img/roupa28.png"
+    ],
+    extra: [
+        "img/extra.png",
+        "img/extra02.png",
+        "img/extra03.png",
+        "img/extra04.png",
+        "img/extra05.png",
+        "img/extra06.png",
+        "img/extra07.png",
+        "img/extra08.png",
+        "img/extra09.png",
+        "img/extra10.png",
+        "img/extra11.png",
+        "img/extra12.png",
+        "img/extra13.png",
+        "img/extra14.png",
+        "img/extra15.png",
+        "img/extra16.png",
+        "img/extra17.png",
+        "img/extra18.png",
+        "img/extra19.png",
+        "img/extra20.png",
+        "img/extra21.png",
+        "img/extra22.png",
+        "img/extra23.png",
+        "img/extra24.png",
+        "img/extra25.png",
+        "img/extra26.png",
+        "img/extra27.png",
+        "img/extra28.png",
+        "img/extra29.png",
+        "img/extra30.png",
+        "img/extra31.png",
+        "img/extra32.png",
+        "img/extra33.png",
+        "img/extra34.png",
+        "img/extra35.png",
+        "img/extra36.png",
+        "img/extra37.png",
+        "img/extra38.png",
+        "img/extra39.png",
+        "img/extra40.png",
+        "img/extra41.png",
+        "img/extra42.png"
+    ]
+};
+
+function showCategory(category){
+    partsContainer.innerHTML = "";
+partsContainer.style.display = "grid";
+    partsContainer.style.gridTemplateColumns = "repeat(2, 1fr)";
+
+    categories[category].forEach(src=>{
+        const btn = document.createElement("button");
+        btn.className = "part-btn";
+
+        const img = document.createElement("img");
+        img.src = src;
+
+        btn.appendChild(img);
+        btn.onclick = ()=>addPiece(src);
+
+        partsContainer.appendChild(btn);
+    });
+}
+function showLayers(){
+      partsContainer.innerHTML = "";
+    partsContainer.style.display = "grid";
+    partsContainer.style.gridTemplateColumns = "1fr";
+
+    [...placedPieces].reverse().forEach((piece)=>{
+        const row = document.createElement("div");
+        row.style.display = "flex";
+        row.style.alignItems = "center";
+        row.style.gap = "6px";
+        row.style.marginBottom = "8px";
+        row.style.background = "#fff";
+        row.style.padding = "6px";
+        row.style.borderRadius = "8px";
+
+        const thumb = document.createElement("img");
+thumb.src = piece.src;
+thumb.style.width = "100px";
+thumb.style.height = "100px";
+thumb.style.objectFit = "contain";
+
+thumb.addEventListener("contextmenu", (e)=>{
+    e.preventDefault();
+    openColorPanel(piece, e.pageX, e.pageY);
+});
+
+let thumbHoldTimer = null;
+
+thumb.addEventListener("mousedown", (e)=>{
+    if(e.button !== 0) return;
+
+    thumbHoldTimer = setTimeout(()=>{
+        justOpenedByHold = true;
+        openColorPanel(piece, e.pageX, e.pageY);
+    }, 500);
+});
+
+thumb.addEventListener("mouseup", ()=>{
+    clearTimeout(thumbHoldTimer);
+});
+
+thumb.addEventListener("mouseleave", ()=>{
+    clearTimeout(thumbHoldTimer);
+});
+
+        const upBtn = document.createElement("button");
+        upBtn.textContent = "⬆";
+        upBtn.onclick = ()=>moveLayer(piece, 1);
+
+        const downBtn = document.createElement("button");
+downBtn.textContent = "⬇";
+downBtn.onclick = ()=>moveLayer(piece, -1);
+
+/* BOTÃO APAGAR */
+const deleteBtn = document.createElement("button");
+deleteBtn.textContent = "❌";
+deleteBtn.onclick = ()=>{
+    placedPieces = placedPieces.filter(p => p !== piece);
+    piece.remove();
+    colorPanel.style.display = "none";
+    showLayers();
+};
+
+row.appendChild(thumb);
+row.appendChild(upBtn);
+row.appendChild(downBtn);
+row.appendChild(deleteBtn);
+
+        partsContainer.appendChild(row);
+    });
+}
+function moveLayer(piece, direction){
+    const index = placedPieces.indexOf(piece);
+    const newIndex = index + direction;
+
+    if(newIndex < 0 || newIndex >= placedPieces.length) return;
+
+    [placedPieces[index], placedPieces[newIndex]] =
+    [placedPieces[newIndex], placedPieces[index]];
+
+    updateLayerOrder();
+    showLayers();
+}
+function updateLayerOrder(){
+    placedPieces.forEach((piece, index)=>{
+        piece.style.zIndex = index + 1;
+    });
+
+    currentZ = placedPieces.length + 1;
+}
+
+function openColorPanel(img, x, y){
+    selectedPiece = img;
+
+    colorPanel.style.display = "block";
+    colorPanel.style.left = x + "px";
+    colorPanel.style.top = y + "px";
+
+    const currentFilter = getCurrentFilter(img);
+    hueSlider.value = currentFilter.hue;
+    satSlider.value = currentFilter.sat;
+}
+
+function addPiece(src){
+    const img = document.createElement("img");
+    img.src = src;
+    img.className = "draggable";
+    img.style.left = "300px";
+    img.style.top = "100px";
+    img.style.zIndex = currentZ++;
+
+    canvas.appendChild(img);
+    placedPieces.push(img);
+
+    makeDraggable(img);
+
+    img.addEventListener("contextmenu", (e)=>{
+    e.preventDefault();
+    openColorPanel(img, e.pageX, e.pageY);
+});
+let clickTimes = [];
+let holdTimer = null;
+
+/* TRIPLO CLIQUE = APAGAR */
+img.addEventListener("click", ()=>{
+    const now = Date.now();
+
+    clickTimes.push(now);
+    clickTimes = clickTimes.filter(t => now - t < 500);
+
+    if(clickTimes.length >= 3){
+        placedPieces = placedPieces.filter(p => p !== img);
+        img.remove();
+        colorPanel.style.display = "none";
+        clickTimes = [];
+    }
+});
+
+/* SEGURAR = ABRIR PAINEL */
+img.addEventListener("mousedown", (e)=>{
+    if(e.button !== 0) return;
+
+    holdTimer = setTimeout(()=>{
+    justOpenedByHold = true;
+    openColorPanel(img, e.pageX, e.pageY);
+}, 500);
+});
+
+img.addEventListener("mouseup", ()=>{
+    clearTimeout(holdTimer);
+});
+
+img.addEventListener("mouseleave", ()=>{
+    clearTimeout(holdTimer);
+});
+
+}
+
+function getCurrentFilter(img){
+    const hueMatch = img.style.filter.match(/hue-rotate\((\d+)deg\)/);
+    const satMatch = img.style.filter.match(/saturate\((\d+)%\)/);
+
+    return {
+        hue: hueMatch ? hueMatch[1] : 0,
+        sat: satMatch ? satMatch[1] : 100
+    };
+}
+
+function updateSelectedFilter(){
+    if(selectedPiece){
+        selectedPiece.style.filter =
+            `hue-rotate(${hueSlider.value}deg) saturate(${satSlider.value}%)`;
+    }
+}
+
+hueSlider.addEventListener("input", updateSelectedFilter);
+satSlider.addEventListener("input", updateSelectedFilter);
+
+document.addEventListener("click", (e)=>{
+    if(justOpenedByHold){
+        justOpenedByHold = false;
+        return;
+    }
+
+    if(!colorPanel.contains(e.target)){
+        colorPanel.style.display = "none";
+    }
+});
+
+/* ARRASTAR */
+function makeDraggable(el){
+    let offsetX, offsetY, isDragging = false;
+
+    el.addEventListener("mousedown", (e)=>{
+        if(e.button !== 0) return;
+        isDragging = true;
+
+        offsetX = e.clientX - el.offsetLeft;
+        offsetY = e.clientY - el.offsetTop;
+
+        el.style.zIndex = currentZ++;
+    });
+
+    document.addEventListener("mousemove", (e)=>{
+        if(!isDragging) return;
+
+        el.style.left = (e.clientX - offsetX) + "px";
+        el.style.top = (e.clientY - offsetY) + "px";
+    });
+
+    document.addEventListener("mouseup", ()=>{
+        isDragging = false;
+    });
+}
+
+/* COMEÇA COM CORPOS */
+showCategory("body");
+</script>
+
+</body>
+</html>
