@@ -74,6 +74,7 @@ body{
     cursor:grab;
     user-select:none;
     transform-origin:center;
+    image-rendering: pixelated;
 }
 
 /* PAINEL DE COR */
@@ -86,6 +87,20 @@ body{
     box-shadow:0 4px 10px rgba(0,0,0,0.15);
     display:none;
     z-index:9999;
+}
+#exportBtn{
+    position:fixed;
+    right:20px;
+    bottom:20px;
+    padding:14px 18px;
+    border:none;
+    border-radius:12px;
+    background:#222;
+    color:white;
+    font-weight:bold;
+    cursor:pointer;
+    z-index:99999;
+    box-shadow:0 4px 12px rgba(0,0,0,0.2);
 }
 </style>
 </head>
@@ -114,6 +129,7 @@ body{
     <input type="range" id="satSlider" min="0" max="200" value="100" step="1">
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 const partsContainer = document.getElementById("partsContainer");
 const canvas = document.getElementById("canvas");
@@ -493,6 +509,28 @@ function makeDraggable(el){
 
 /* COMEÇA COM CORPOS */
 showCategory("body");
+const exportBtn = document.getElementById("exportBtn");
+
+exportBtn.addEventListener("click", exportCharacter);
+
+async function exportCharacter(){
+    try{
+        const screenshot = await html2canvas(canvas, {
+            backgroundColor: "#ffffff",
+            scale: 2,
+            useCORS: true
+        });
+
+        const link = document.createElement("a");
+        link.download = "personagem.png";
+        link.href = screenshot.toDataURL("image/png");
+        link.click();
+
+    }catch(err){
+        console.error(err);
+        alert("Erro ao exportar.");
+    }
+}
 </script>
 
 </body>
